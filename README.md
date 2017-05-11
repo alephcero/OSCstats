@@ -1,15 +1,18 @@
 # OSCstats
-Project to read cellphone sensors using OSC and get stats
+Project to read cellphone sensors using OSC and get stats to measure how *fluid* is the bike-lane. Sudden braking to avoid a pothole or any other interruption in the bike-lane, a swiftly turn in the handle (where the sensor was located) to avoid potholes or other obstacles will affect X and Y axis. Finally, passing through an actual pothole will be measured in the Z axis.
 
 ## Original data
 The data from OSC is stored in a txt file in:
 
 *local/android/data/com.telenav.streetvie.../files/OSV*
 
+## Reading the data
+
+The function *loadOSCdata()* will load data from that file and return a GeoPandas DataFrame. 
 
 ## Output
 
-The final output is a polyline with the resulting vector of the 3 axis (X,Y,Z) from the accelerometer as an attribute. This vector measures how *fluid* is the bike-lane. Sudden braking to avoid a pothole or any other interruption in the bike-lane, a swiftly turn in the handle (where the sensor was located) to avoid potholes or other obstacles will affect X and Y axis. Finally, passing through an actual pothole will be measured in the Z axis.
+The final output is a polyline with the resulting vector of the 3 axis (X,Y,Z) from the accelerometer as an attribute.
 
 We calculated the final vector following [this guide](http://www.starlino.com/imu_guide.html)
 
