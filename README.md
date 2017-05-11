@@ -11,6 +11,8 @@ The data from OSC is stored in a txt file in:
 
 The final output is a polyline with the resulting vector of the 3 axis (X,Y,Z) from the accelerometer as an attribute. This vector measures how *fluid* is the bike-lane. Sudden braking to avoid a pothole or any other interruption in the bike-lane, a swiftly turn in the handle (where the sensor was located) to avoid potholes or other obstacles will affect X and Y axis. Finally, passing through an actual pothole will be measured in the Z axis.
 
+We calculated the final vector following [this guide](http://www.starlino.com/imu_guide.html)
+
 ![Final output in QGIS](img/firstTest.png)
 
 ## Columns data:
@@ -36,6 +38,5 @@ The final output is a polyline with the resulting vector of the 3 axis (X,Y,Z) f
 * gravityZ
 * OBD2Speed
 * vertical_accu
-
 
 
