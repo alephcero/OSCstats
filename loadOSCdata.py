@@ -5,9 +5,11 @@ import numpy as np
 from shapely.geometry import Point, LineString
 import shapely.wkt
 
-def loadOSCdata(textfile, X = True, Y = True, Z = True):
+def loadOSCdata(textfile, X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv'):
     '''
     This function takes a text file from OSC in the phone
+    The axis we want to consider to compute the final vector (X, Y, Z)
+    And the output formats and file
     and return a poliline shape file with the final vector
     '''
     #read original data from file within track.txt.gz used by OSC to store sensor data
@@ -54,7 +56,7 @@ def loadOSCdata(textfile, X = True, Y = True, Z = True):
             endPoint = Point(gpsDataPoints['long'].loc[gpsDataPoints.index[i+1]], gpsDataPoints['lat'].loc[gpsDataPoints.index[i+1]])
             #convert to shapely wkt
             line = LineString([startPoint,endPoint]).wkt
-            geometry.append(shapely.wkt.loads(line))
+            geometry.append(shapely.wkt.loads(line).centroid)
     
     gpsDataPoints = gpsDataPoints.iloc[:-1]
     crs = {'init': 'epsg:4326'}
@@ -85,4 +87,13 @@ def loadOSCdata(textfile, X = True, Y = True, Z = True):
     vectorInformation = data.loc[:,['pointIndex','V']].groupby(by=['pointIndex']).sum()
     vectorInformation.reset_index(inplace=True)
     gpsDataPoints = gpsDataPoints.merge(vectorInformation)
+    gpsDataPoints.timestamp = gpsDataPoints.timestamp.map(lambda x: str(x))
+    
+    if output == 'csv':
+        gpsDataPoints.to_csv(outputFile)
+    elif output == 'shp':
+        gpsDataPoints.to_file(outputFile)
+    else:
+        raise NameError('You can only export to csv or shp files')
+    
     return gpsDataPoints
