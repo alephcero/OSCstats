@@ -5,7 +5,7 @@ import numpy as np
 from shapely.geometry import Point, LineString
 import shapely.wkt
 
-def loadOSCdata(textfile):
+def loadOSCdata(textfile, X = True, Y = True, Z = True):
     '''
     This function takes a text file from OSC in the phone
     and return a poliline shape file with the final vector
@@ -76,14 +76,13 @@ def loadOSCdata(textfile):
     data.dropna(axis=0,how='any',inplace=True)
     
     #compute vector
-    data['V'] = (data.accelerationX-data.accelerationXShift) ** 2 + \
-    (data.accelerationY-data.accelerationYShift) ** 2 + \
-    (data.accelerationZ-data.accelerationZShift) ** 2 
+    
+    data['V'] = np.sqrt((data.accelerationX-data.accelerationXShift) ** 2 * X + \
+    (data.accelerationY-data.accelerationYShift) ** 2 * Y + \
+    (data.accelerationZ-data.accelerationZShift) ** 2 * Z) 
     
     #get the sum of every lag BY line defined by the starting point (with GPS data)
     vectorInformation = data.loc[:,['pointIndex','V']].groupby(by=['pointIndex']).sum()
     vectorInformation.reset_index(inplace=True)
-    #apply the square root to the sum
-    vectorInformation.V = vectorInformation.V.map(lambda x: np.sqrt(x)) 
     gpsDataPoints = gpsDataPoints.merge(vectorInformation)
     return gpsDataPoints
