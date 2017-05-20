@@ -4,13 +4,36 @@ import datetime
 import numpy as np
 from shapely.geometry import Point, LineString
 import shapely.wkt
+import os
+import json
+
+def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv'):
+    '''
+    This functions takes an ID from OSC 
+    returns a dataframe with the V values for each gps coordinate point
+    '''
+    #query the OSC API for the ID
+    query = "curl 'http://openstreetcam.org/details' -H 'Referer: http://openstreetcam.org/details/" + str(OSCid) + "/0' -H 'X-Requested-With: XMLHttpRequest' -H 'Connection: keep-alive' --data 'id=" + str(OSCid) + "&platform=web' --compressed >> osc.json"    
+    os.system(query)
+
+    #read json file
+    with open('osc.json') as data_file:    
+        data = json.load(data_file)
+    os.system('rm osc.json')
+    
+    #get the url for the file with accelerometer data
+    url='http://openstreetcam.org/'+data['osv']['meta_data_filename']
+    
+    #read the accelerometer data with loadOSCdata function
+    data = loadOSCdata(url, X = X, Y = Y, Z = Z, output = output, outputFile = outputFile)
+    return data
 
 def loadOSCdata(textfile, X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv'):
     '''
     This function takes a text file from OSC in the phone
     The axis we want to consider to compute the final vector (X, Y, Z)
     And the output formats and file
-    and return a poliline shape file with the final vector
+    and returns a dataframe with the V values for each gps coordinate point
     '''
     #read original data from file within track.txt.gz used by OSC to store sensor data
     data = pd.read_csv(textfile,sep=';',

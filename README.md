@@ -8,7 +8,11 @@ The data from OSC is stored in a txt file in:
 
 ## Reading the data
 
-The function *loadOSCdata()* will load data from that file and return a GeoPandas DataFrame. 
+The function *loadOSCdata()* will load data from that file and returns a GeoPandas DataFrame or CSV. 
+
+The function *queryOSCapi()* will load data from the API given an tripID from OSC and returns a GeoPandas DataFrame or CSV
+
+`loadOSCdata.queryOSCapi(OSCid = 219598,X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv')`
 
 ## Output
 
