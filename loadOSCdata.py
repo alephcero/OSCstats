@@ -7,28 +7,72 @@ import shapely.wkt
 import os
 import json
 
-def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv'):
+
+
+
+def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv', dataType = 'accelerometer'):
     '''
-    This functions takes an ID from OSC 
-    returns a dataframe with the V values for each gps coordinate point
+    This functions takes an ID from OSC
+    the type of data to download: accelerometer or photos
+    returns :
+    - a dataframe with the V values for each gps coordinate point
+    or
+    - a dataframe with pictures names, gps coordinates and picture quality placeholder 
     '''
+    
     #query the OSC API for the ID
-    query = "curl 'http://openstreetcam.org/details' -H 'Referer: http://openstreetcam.org/details/" + str(OSCid) + "/0' -H 'X-Requested-With: XMLHttpRequest' -H 'Connection: keep-alive' --data 'id=" + str(OSCid) + "&platform=web' --compressed >> osc.json"    
+    data = getOSCjson(OSCid=OSCid)
+    
+    
+    try:
+        data = data['osv']
+        if dataType == 'accelerometer':
+            
+            #get the url for the file with accelerometer data
+            url='http://openstreetcam.org/'+data['meta_data_filename']
+            
+            #read the accelerometer data with loadOSCdata function
+            outputReturn = readAccelerometer(url, X = X, Y = Y, Z = Z, output = output, outputFile = outputFile)
+        else:
+            totalPhotos = len(data['photos'])
+
+
+            pictureName = [data['photos'][i]['name'] for i in range(totalPhotos)]
+            quality = np.repeat(np.nan,totalPhotos)
+            latitude = [data['photos'][i]['lat'] for i in range(totalPhotos)]
+            longitude = [data['photos'][i]['lng'] for i in range(totalPhotos)]
+
+            outputReturn = pd.DataFrame({'pictureName':pictureName,
+                                     'quality':quality,
+                                     'latitude':latitude,
+                                     'longitude':longitude})
+        return outputReturn
+    
+    except KeyError, e:
+        print 'Got a KeyError - reason "%s"' % str(e)
+        output = 'Got a KeyError - reason "%s"' % str(e)
+        return output
+
+
+def getOSCjson(OSCid):
+    '''
+    This function takes a OSC track id and 
+    returns a json file load in a Python dict 
+    '''
+    
+    query = "curl 'http://openstreetcam.org/details' -H 'Referer: http://openstreetcam.org/details/" + str(OSCid) + "/0' -H 'X-Requested-With: XMLHttpRequest' -H 'Connection: keep-alive' --data 'id=" + str(OSCid) + "&platform=web' --compressed >> osc.json"
     os.system(query)
 
     #read json file
     with open('osc.json') as data_file:    
         data = json.load(data_file)
-    os.system('rm osc.json')
+
+    os.system('rm osc.json')    
     
-    #get the url for the file with accelerometer data
-    url='http://openstreetcam.org/'+data['osv']['meta_data_filename']
-    
-    #read the accelerometer data with loadOSCdata function
-    data = loadOSCdata(url, X = X, Y = Y, Z = Z, output = output, outputFile = outputFile)
     return data
 
-def loadOSCdata(textfile, X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv'):
+
+def readAccelerometer(textfile, X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv'):
     '''
     This function takes a text file from OSC in the phone
     The axis we want to consider to compute the final vector (X, Y, Z)
