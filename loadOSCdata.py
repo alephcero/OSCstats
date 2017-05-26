@@ -46,6 +46,20 @@ def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile =
                                      'quality':quality,
                                      'latitude':latitude,
                                      'longitude':longitude})
+            
+            #check if directories exists
+            if not(os.path.exists("../data")):
+                os.system('mkdir data')
+    
+            if not(os.path.exists('../data/' + str(OSCid))):
+                os.system('mkdir ../data/' + str(OSCid))
+            
+            #download data
+            for i in range(outputReturn.shape[0]):
+                photoURL = outputReturn.pictureName[i][9:]
+                oscURL = 'http://storage3.openstreetcam.org/'
+                os.system('wget '+ oscURL + photoURL + ' -P ' + '../data/' + str(OSCid))
+                
         return outputReturn
     
     except KeyError, e:
