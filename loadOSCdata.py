@@ -8,7 +8,69 @@ import os
 import json
 
 
+def snapToBikelane(bikelaneDF,bufersDF,pointsDF):
+    '''
+    this function takes:
+    - a point data set (accelerometer or photos)
+    - a bikelane buffer geopandas
+    - a bikelane geopandas
+    and returns a new geopandas with :
+    the bikelane ID where the point belongs to  
+    the bikeline in geometry
+    the new point snap to line in geomtry 
+    '''
+    #change projection for points, bike shp already in 3857
+    pointsDF = pointsDF.to_crs(epsg=3857)
+    bufersDF = bufersDF.to_crs(epsg=3857)
+    bikelaneDF = bikelaneDF.to_crs(epsg=3857)
 
+    #give the line of the bikelane to the bufersDF
+    bufersDF['line'] = bikelaneDF.geometry
+    
+    #joint points with buffer
+    joinData = gpd.sjoin(pointsDF, bufersDF, how="left", op='intersects')
+    
+    #get unique pointID TIMES MAY CHANGE IN THE NAME WARNING
+    allThePoints = pointsDF.pointIndex.unique()
+    
+    #create empty lists where we store new data
+    line = []
+    bikelanesID = []
+    
+    #get point ID duplicated
+    duplicates = joinData.pointIndex[joinData.pointIndex.duplicated()].unique()
+
+    
+    for i in range(len(allThePoints)):
+        #check if the pointIndex is unique:
+        if allThePoints[i] not in duplicates:
+            #append line from joint to that index
+            line.append(joinData.line.loc[joinData.pointIndex == allThePoints[i]].iloc[0])
+            bikelanesID.append(joinData.ID_ORIGINA.loc[joinData.pointIndex == allThePoints[i]].iloc[0])
+
+        else:
+            #if not, append from the previous id
+            line.append(joinData.line.loc[joinData.pointIndex == allThePoints[i-1]].iloc[0])
+            bikelanesID.append(joinData.ID_ORIGINA.loc[joinData.pointIndex == allThePoints[i-1]].iloc[0])
+    
+    pointsDF['line'] = line
+    pointsDF['bikelanesID'] = bikelanesID
+    
+    
+    pointOnLine = []
+
+    for i in range(pointsDF.shape[0]):
+        try:
+            newPoint = pointsDF.line.loc[i].interpolate(pointsDF.line.loc[i].project(pointsDF.geometry.loc[i]))
+
+        except AttributeError:
+            newPoint = np.nan
+
+        pointOnLine.append(newPoint)
+
+    pointsDF['pointOnLine'] = pointOnLine   
+    
+    return pointsDF
 
 def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv', dataType = 'accelerometer'):
     '''
