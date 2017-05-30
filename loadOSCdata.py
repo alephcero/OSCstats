@@ -41,23 +41,33 @@ def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile =
             quality = np.repeat(np.nan,totalPhotos)
             latitude = [data['photos'][i]['lat'] for i in range(totalPhotos)]
             longitude = [data['photos'][i]['lng'] for i in range(totalPhotos)]
+            timestamp = [data['photos'][i]['date_added'] for i in range(totalPhotos)]
+
 
             outputReturn = pd.DataFrame({'pictureName':pictureName,
-                                     'quality':quality,
-                                     'latitude':latitude,
-                                     'longitude':longitude})
-            
-            #check if directories exists
+                                                 'quality':quality,
+                                                 'latitude':latitude,
+                                                 'longitude':longitude,
+                                        'timestamp':timestamp})
+
+
+            #photo
+            ##pointID
+            ##tripid
+            ##timestamp
+            outputReturn['tripID'] = OSCid
+            outputReturn['pointID'] = outputReturn.index
+
             if not(os.path.exists("../data")):
                 os.system('mkdir data')
-    
+
             if not(os.path.exists('../data/' + str(OSCid))):
                 os.system('mkdir ../data/' + str(OSCid))
-            
+
             #download data
             for i in range(outputReturn.shape[0]):
                 photoURL = outputReturn.pictureName[i][9:]
-                oscURL = 'http://storage3.openstreetcam.org/'
+                oscURL = 'http://'+outputReturn.pictureName[0][0:8]+'.openstreetcam.org/'
                 os.system('wget '+ oscURL + photoURL + ' -P ' + '../data/' + str(OSCid))
                 
         return outputReturn
