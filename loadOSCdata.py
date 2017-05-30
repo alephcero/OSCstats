@@ -49,13 +49,7 @@ def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile =
                                                  'latitude':latitude,
                                                  'longitude':longitude,
                                         'timestamp':timestamp})
-
-
-            #photo
-            ##pointID
-            ##tripid
-            ##timestamp
-            outputReturn['tripID'] = OSCid
+            
             outputReturn['pointID'] = outputReturn.index
 
             if not(os.path.exists("../data")):
@@ -69,7 +63,9 @@ def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile =
                 photoURL = outputReturn.pictureName[i][9:]
                 oscURL = 'http://'+outputReturn.pictureName[0][0:8]+'.openstreetcam.org/'
                 os.system('wget '+ oscURL + photoURL + ' -P ' + '../data/' + str(OSCid))
-                
+        
+        outputReturn['tripID'] = OSCid        
+        
         return outputReturn
     
     except KeyError, e:
