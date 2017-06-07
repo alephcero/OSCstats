@@ -95,6 +95,8 @@ def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile =
             
             #read the accelerometer data with loadOSCdata function
             outputReturn = readAccelerometer(url, X = X, Y = Y, Z = Z, output = output, outputFile = outputFile)
+            outputReturn['tripID'] = OSCid
+
         else:
             totalPhotos = len(data['photos'])
 
@@ -126,7 +128,7 @@ def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile =
                 oscURL = 'http://'+outputReturn.pictureName[0][0:8]+'.openstreetcam.org/'
                 os.system('wget '+ oscURL + photoURL + ' -P ' + '../data/' + str(OSCid))
         
-        outputReturn['tripID'] = OSCid        
+        #outputReturn['tripID'] = OSCid        
         
         return outputReturn
     
@@ -175,13 +177,13 @@ def readAccelerometer(textfile, X = True, Y = True, Z = True, output = 'csv', ou
          'gravityX','gravityY','gravityZ'] 
     
     #conversion into timestamp
-    dates = []
-    for i in range(data.shape[0]):
-        try:
-            dates.append(datetime.datetime.fromtimestamp(data['timestamp'].iloc[i]))
-        except :
-            print 'Error with row:', i
-    data['timestamp'] = dates        
+    #dates = []
+    #for i in range(data.shape[0]):
+    #    try:
+    #        dates.append(datetime.datetime.fromtimestamp(data['timestamp'].iloc[i]))
+    #    except :
+    #        print 'Error with row:', i
+    #data['timestamp'] = dates        
     
     #remove all empty rows except timestamp
     emtpy = data.iloc[:,1:].isnull().sum(axis=1) == data.shape[1]-1
@@ -236,7 +238,8 @@ def readAccelerometer(textfile, X = True, Y = True, Z = True, output = 'csv', ou
     vectorInformation = data.loc[:,['pointIndex','V']].groupby(by=['pointIndex']).sum()
     vectorInformation.reset_index(inplace=True)
     gpsDataPoints = gpsDataPoints.merge(vectorInformation)
-    gpsDataPoints.timestamp = gpsDataPoints.timestamp.map(lambda x: str(x))
+    
+    #gpsDataPoints.timestamp = gpsDataPoints.timestamp.map(lambda x: str(x))
     
     if output == 'csv':
         gpsDataPoints.to_csv(outputFile)
@@ -246,3 +249,5 @@ def readAccelerometer(textfile, X = True, Y = True, Z = True, output = 'csv', ou
         raise NameError('You can only export to csv or shp files')
     
     return gpsDataPoints
+
+
