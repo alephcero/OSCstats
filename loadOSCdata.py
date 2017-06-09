@@ -31,37 +31,37 @@ def snapToBikelane(bikelaneDF,bufersDF,pointsDF):
     joinData = gpd.sjoin(pointsDF, bufersDF, how="left", op='intersects')
     
     #get unique pointID TIMES MAY CHANGE IN THE NAME WARNING
-    allThePoints = pointsDF.pointIndex.unique()
+    allThePoints = pointsDF.point_id.unique()
     
     #create empty lists where we store new data
     line = []
     bikelanesID = []
     
     #get point ID duplicated
-    duplicates = joinData.pointIndex[joinData.pointIndex.duplicated()].unique()
+    duplicates = joinData.point_id[joinData.point_id.duplicated()].unique()
 
     
     for i in range(len(allThePoints)):
         #check if the pointIndex is unique:
         if allThePoints[i] not in duplicates:
             #append line from joint to that index
-            line.append(joinData.line.loc[joinData.pointIndex == allThePoints[i]].iloc[0])
-            bikelanesID.append(joinData.ID_ORIGINA.loc[joinData.pointIndex == allThePoints[i]].iloc[0])
+            line.append(joinData.line.loc[joinData.point_id == allThePoints[i]].iloc[0])
+            bikelanesID.append(joinData.ID_ORIGINA.loc[joinData.point_id == allThePoints[i]].iloc[0])
 
         else:
             #if not, append from the previous id
-            line.append(joinData.line.loc[joinData.pointIndex == allThePoints[i-1]].iloc[0])
-            bikelanesID.append(joinData.ID_ORIGINA.loc[joinData.pointIndex == allThePoints[i-1]].iloc[0])
+            line.append(joinData.line.loc[joinData.point_id == allThePoints[i-1]].iloc[0])
+            bikelanesID.append(joinData.ID_ORIGINA.loc[joinData.point_id == allThePoints[i-1]].iloc[0])
     
     pointsDF['line'] = line
-    pointsDF['bikelanesID'] = bikelanesID
+    pointsDF['bikelane_id'] = bikelanesID
     
     
     pointOnLine = []
 
     for i in range(pointsDF.shape[0]):
         try:
-            newPoint = pointsDF.line.loc[i].interpolate(pointsDF.line.loc[i].project(pointsDF.geometry.loc[i]))
+            newPoint = pointsDF.line.iloc[i].interpolate(pointsDF.line.iloc[i].project(pointsDF.geometry.iloc[i]))
 
         except AttributeError:
             newPoint = np.nan
@@ -70,6 +70,11 @@ def snapToBikelane(bikelaneDF,bufersDF,pointsDF):
 
     pointsDF['pointOnLine'] = pointOnLine   
     
+    
+    pointsDF = pointsDF.to_crs(epsg=3857)
+    
+    
+
     return pointsDF
 
 def queryOSCapi(OSCid,X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv', dataType = 'accelerometer'):
@@ -375,7 +380,7 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
         cvLabels.append(cvLabel)     
 
     dataPhotos['v_value'] = photoV
-    dataPhotos['geometry_raw'] = photoPoints
+    dataPhotos['geometry'] = photoPoints
     dataPhotos['image_url'] = pictureUrl
     dataPhotos['image_lab'] = cvLabels
     dataPhotos['timestamp'] = dates
@@ -383,7 +388,7 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
     
     crs = {'init': 'epsg:4326'}
 
-    dataPhotos = gpd.GeoDataFrame(dataPhotos, crs=crs)
+    dataPhotos = gpd.GeoDataFrame(dataPhotos, crs=crs, geometry = dataPhotos.geometry)
     #get photo url for each photo
     
 
