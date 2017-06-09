@@ -273,7 +273,7 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
                    engine = 'python')
 
     #naming of columns 
-    data.columns = ['timestamp','long','lat','accelerationX','accelerationY','accelerationZ','photoIndex'] 
+    data.columns = ['timestamp','long','lat','accelerationX','accelerationY','accelerationZ','point_id'] 
     
     
     #remove all empty rows except timestamp
@@ -283,13 +283,13 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
     
 
     data.dropna(axis=0,how='all',
-                subset = ['long','lat','accelerationX','accelerationY','accelerationZ','photoIndex'],
+                subset = ['long','lat','accelerationX','accelerationY','accelerationZ','point_id'],
                 inplace=True)
     
     
     #CREATE A PHOTOS DATAFRAME
-    dataPhotos = data.loc[~data.photoIndex.isnull(),['timestamp','photoIndex']]
-    data.drop(['photoIndex'],axis=1,inplace=True)
+    dataPhotos = data.loc[~data.point_id.isnull(),['timestamp','point_id']]
+    data.drop(['point_id'],axis=1,inplace=True)
     
 
     #Create accelerometer dataframe
@@ -345,6 +345,8 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
     photoV = []
     pictureUrl = []
     cvLabels = []
+    dates = []
+    
     #for each photo, search accelerometer points data, and:
         ## compute the mean of the final accelerometer V vector for all the points between that photo and the next
         ## get the coordinate of the first point
@@ -358,23 +360,30 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
         photoV.append(dataAggregated.V.mean())
         photoPoints.append(dataAggregated.geometry.iloc[0])
         
+        #conversion into timestamp
+    
+        dates.append(datetime.datetime.fromtimestamp(dataPhotos['timestamp'].iloc[i]))
+        
         #get photo url and label
         pictureName = apiOutput['photos'][i]['name']
-                
+        
         oscURL = 'http://'+pictureName[0:8]+'.openstreetcam.org/'+pictureName[9:]
         
         pictureUrl.append(oscURL)
         cvLabel = queryCV(oscURL)
+        
         cvLabels.append(cvLabel)     
 
-    dataPhotos['V'] = photoV
-    dataPhotos['geometry'] = photoPoints
-    dataPhotos['pictureUrl'] = pictureUrl
-    dataPhotos['cvLabel'] = cvLabels
+    dataPhotos['v_value'] = photoV
+    dataPhotos['geometry_raw'] = photoPoints
+    dataPhotos['image_url'] = pictureUrl
+    dataPhotos['image_lab'] = cvLabels
+    dataPhotos['timestamp'] = dates
+    dataPhotos['trip_id'] = OSCid
     
     crs = {'init': 'epsg:4326'}
-    dataPhotos = gpd.GeoDataFrame(dataPhotos, crs=crs, geometry=dataPhotos.geometry)
-    
+
+    dataPhotos = gpd.GeoDataFrame(dataPhotos, crs=crs)
     #get photo url for each photo
     
 
@@ -388,6 +397,7 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
     
     #return (gpsDataPoints,dataPhotos)
     return dataPhotos
+
 
 def queryCV(pictureURL):
     query = '''curl 'https://southcentralus.api.cognitive.microsoft.com/customvision/v1.0/Prediction/16d2699a-3afd-4548-a7d3-2263abf5be63/url?iterationId=d6c29a8a-8001-49eb-b497-9f8b7109dfe7&application=quicktest' -H 'Origin: https://customvision.ai' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: en-US,en;q=0.8,es;q=0.6' -H 'Prediction-Key: '''+os.getenv('CVPREDICTIONKEY')+''' ' -H 'Content-Type: application/json;charset=UTF-8' -H 'Training-Key: '''+os.getenv('CVTRAININGKEY')+''' ' -H 'Accept: application/json, text/plain, */*' -H 'Referer: https://customvision.ai/projects/16d2699a-3afd-4548-a7d3-2263abf5be63' -H 'Connection: keep-alive' -H 'DNT: 1' --data-binary '{"Url":"'''+pictureURL+'''"}' --compressed >> photoLabel.json'''
