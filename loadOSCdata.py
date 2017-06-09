@@ -344,6 +344,7 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
     photoPoints = []
     photoV = []
     pictureUrl = []
+    cvLabels = []
     #for each photo, search accelerometer points data, and:
         ## compute the mean of the final accelerometer V vector for all the points between that photo and the next
         ## get the coordinate of the first point
@@ -363,13 +364,14 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
         oscURL = 'http://'+pictureName[0:8]+'.openstreetcam.org/'+pictureName[9:]
         
         pictureUrl.append(oscURL)
-                
-                
-    #dataPhotos = dataPhotos.iloc[:dataPhotos.shape[0]-1,:]        
+        cvLabel = queryCV(oscURL)
+        cvLabels.append(cvLabel)     
+
     dataPhotos['V'] = photoV
     dataPhotos['geometry'] = photoPoints
     dataPhotos['pictureUrl'] = pictureUrl
-
+    dataPhotos['cvLabel'] = cvLabels
+    
     crs = {'init': 'epsg:4326'}
     dataPhotos = gpd.GeoDataFrame(dataPhotos, crs=crs, geometry=dataPhotos.geometry)
     
@@ -386,3 +388,26 @@ def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile
     
     #return (gpsDataPoints,dataPhotos)
     return dataPhotos
+
+def queryCV(pictureURL):
+    query = '''curl 'https://southcentralus.api.cognitive.microsoft.com/customvision/v1.0/Prediction/16d2699a-3afd-4548-a7d3-2263abf5be63/url?iterationId=d6c29a8a-8001-49eb-b497-9f8b7109dfe7&application=quicktest' -H 'Origin: https://customvision.ai' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: en-US,en;q=0.8,es;q=0.6' -H 'Prediction-Key: '''+os.getenv('CVPREDICTIONKEY')+''' ' -H 'Content-Type: application/json;charset=UTF-8' -H 'Training-Key: '''+os.getenv('CVTRAININGKEY')+''' ' -H 'Accept: application/json, text/plain, */*' -H 'Referer: https://customvision.ai/projects/16d2699a-3afd-4548-a7d3-2263abf5be63' -H 'Connection: keep-alive' -H 'DNT: 1' --data-binary '{"Url":"'''+pictureURL+'''"}' --compressed >> photoLabel.json'''
+    os.system(query)    
+    with open('photoLabel.json') as data_file:    
+        #print data_file
+        data = json.load(data_file)
+    os.system('rm photoLabel.json')
+    
+    highest = 0
+    label = ''
+    try:
+        for i in range(len(data['Predictions'])):
+            prob = data['Predictions'][i]['Probability']
+            if  prob > highest:
+                highest = prob
+                label = data['Predictions'][i]['Tag']
+            else:
+                pass
+    except KeyError:
+        label = 'Error'
+    
+    return label
