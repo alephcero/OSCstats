@@ -251,3 +251,138 @@ def readAccelerometer(textfile, X = True, Y = True, Z = True, output = 'csv', ou
     return gpsDataPoints
 
 
+def downloadData(OSCid, X = True, Y = True, Z = True, output = 'csv', outputFile = 'data.csv'):
+    '''
+    This function takes a text file from OSC in the phone
+    The axis we want to consider to compute the final vector (X, Y, Z)
+    And the output formats and file
+    and returns a dataframe with the V values for each gps coordinate point
+    '''
+    
+    
+    apiOutput = getOSCjson(OSCid)
+    apiOutput = apiOutput['osv']
+    textfile='http://openstreetcam.org/'+apiOutput['meta_data_filename']
+
+    #read original data from file within track.txt.gz used by OSC to store sensor data
+    data = pd.read_csv(textfile,sep=';',
+                   skiprows=[0],
+                   skipfooter=1,
+                   usecols=[0,1,2,9,10,11,15],
+                   header=None,
+                   engine = 'python')
+
+    #naming of columns 
+    data.columns = ['timestamp','long','lat','accelerationX','accelerationY','accelerationZ','photoIndex'] 
+    
+    
+    #remove all empty rows except timestamp
+    emtpy = data.iloc[:,1:].isnull().sum(axis=1) == data.shape[1]-1
+    data = data.loc[~emtpy,:]
+    data.index=range(data.shape[0])
+    
+
+    data.dropna(axis=0,how='all',
+                subset = ['long','lat','accelerationX','accelerationY','accelerationZ','photoIndex'],
+                inplace=True)
+    
+    
+    #CREATE A PHOTOS DATAFRAME
+    dataPhotos = data.loc[~data.photoIndex.isnull(),['timestamp','photoIndex']]
+    data.drop(['photoIndex'],axis=1,inplace=True)
+    
+
+    #Create accelerometer dataframe
+    #create the geography
+    gpsDataPoints =  data.loc[~ (data['long'].isnull()),['timestamp','long','lat']]
+    gpsDataPoints['pointIndex'] = gpsDataPoints.index
+    
+    geometry = []
+    for i in range(len(gpsDataPoints.index)):
+        if i == (len(gpsDataPoints.index)-1):
+            line = np.nan
+        else:
+            #get start and end points for each line
+            startPoint = Point(gpsDataPoints['long'].loc[gpsDataPoints.index[i]], gpsDataPoints['lat'].loc[gpsDataPoints.index[i]])
+            endPoint = Point(gpsDataPoints['long'].loc[gpsDataPoints.index[i+1]], gpsDataPoints['lat'].loc[gpsDataPoints.index[i+1]])
+            #convert to shapely wkt
+            line = LineString([startPoint,endPoint]).wkt
+            geometry.append(shapely.wkt.loads(line).centroid)
+    
+    gpsDataPoints = gpsDataPoints.iloc[:-1]
+    crs = {'init': 'epsg:4326'}
+    gpsDataPoints = gpd.GeoDataFrame(gpsDataPoints, crs=crs, geometry=geometry)
+    
+    #Asign to data the index of the points with GPS data
+    data.drop(['timestamp'],axis=1,inplace=True)
+    data = data.merge(gpsDataPoints.drop(['timestamp','geometry'],axis=1),how='left')
+    data['pointIndex'] = data['pointIndex'].fillna(method='ffill')
+    
+    #shift data lag 1 to take the vector of the difference in axis XYZ
+    dataShifted = data.shift(1)
+    dataShifted.drop(['long','lat','pointIndex'],axis=1,inplace=True)
+    dataShifted.columns = ['accelerationXShift','accelerationYShift','accelerationZShift']
+    
+    #concatenate datasets
+    data = pd.concat([data,dataShifted],axis=1)
+    data.drop(['long','lat'],axis=1,inplace=True)
+    data.dropna(axis=0,how='any',inplace=True)
+    
+    #compute vector
+    
+    data['V'] = np.sqrt((data.accelerationX-data.accelerationXShift) ** 2 * X + \
+    (data.accelerationY-data.accelerationYShift) ** 2 * Y + \
+    (data.accelerationZ-data.accelerationZShift) ** 2 * Z) 
+    
+    #get the sum of every lag BY line defined by the starting point (with GPS data)
+    vectorInformation = data.loc[:,['pointIndex','V']].groupby(by=['pointIndex']).sum()
+    vectorInformation.reset_index(inplace=True)
+    gpsDataPoints = gpsDataPoints.merge(vectorInformation)
+    
+    
+    #Create photos dataframe
+    photoPoints = []
+    photoV = []
+    pictureUrl = []
+    #for each photo, search accelerometer points data, and:
+        ## compute the mean of the final accelerometer V vector for all the points between that photo and the next
+        ## get the coordinate of the first point
+        
+    for i in range(dataPhotos.shape[0]):
+        if i == (dataPhotos.shape[0]-1):
+                dataAggregated = gpsDataPoints.loc[(gpsDataPoints.timestamp > dataPhotos.timestamp.iloc[i]),:]
+        else:
+            dataAggregated = gpsDataPoints.loc[(gpsDataPoints.timestamp > dataPhotos.timestamp.iloc[i]) & (gpsDataPoints.timestamp < dataPhotos.timestamp.iloc[i+1]),:]
+        #get V and GPS data        
+        photoV.append(dataAggregated.V.mean())
+        photoPoints.append(dataAggregated.geometry.iloc[0])
+        
+        #get photo url and label
+        pictureName = apiOutput['photos'][i]['name']
+                
+        oscURL = 'http://'+pictureName[0:8]+'.openstreetcam.org/'+pictureName[9:]
+        
+        pictureUrl.append(oscURL)
+                
+                
+    #dataPhotos = dataPhotos.iloc[:dataPhotos.shape[0]-1,:]        
+    dataPhotos['V'] = photoV
+    dataPhotos['geometry'] = photoPoints
+    dataPhotos['pictureUrl'] = pictureUrl
+
+    crs = {'init': 'epsg:4326'}
+    dataPhotos = gpd.GeoDataFrame(dataPhotos, crs=crs, geometry=dataPhotos.geometry)
+    
+    #get photo url for each photo
+    
+
+    
+    if output == 'csv':
+        dataPhotos.to_csv(outputFile)
+    elif output == 'shp':
+        dataPhotos.to_file(outputFile)
+    else:
+        raise NameError('You can only export to csv or shp files')
+    
+    #return (gpsDataPoints,dataPhotos)
+    return dataPhotos
